@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "my-app"
+version = "0.1.0"
+description = "Mirai Analytics"
+authors = [
+    { name = "Volodymyr Sheremeta" },
+    { name = "Davyd Naveriani" },
+    { name = "Artem Starunov" },
+    { name = "Artemiy Senyuk" },
+]
+requires-python = ">=3.12"
+dependencies = [
+    "quart",
+    "langchain",
+    "langgraph",
+    "elevenlabs",
+]

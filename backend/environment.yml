@@ -1,0 +1,13 @@
+name: mirai-analytics
+channels:
+  - conda-forge
+  - defaults
+  - https://repo.anaconda.com/pkgs/main
+  - https://repo.anaconda.com/pkgs/r
+dependencies:
+  - python=3.12
+  - langchain
+  - langchain-anthropic
+  - langchain-community
+  - elevenlabs
+prefix: /Users/polycrit577/anaconda3/envs/mirai-analytics
