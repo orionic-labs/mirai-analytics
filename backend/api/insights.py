@@ -57,6 +57,7 @@ async def list_insights():
 
                 # 🔹 Call Claude service here
                 article_with_insights = await generate_insights_for_article(article_json)
+                article_with_insights["impact_score"] = importance_label
                 results.append(article_with_insights)
 
             return jsonify(results)
