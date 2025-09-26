@@ -1,3 +1,4 @@
+# quart_app.py
 from backend.app import create_app
 from backend.core.tasks import register_tasks
 from quart_tasks import QuartTasks
