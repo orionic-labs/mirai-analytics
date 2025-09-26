@@ -17,8 +17,7 @@ async def send_message_chat():
 
         response = chatbot_graph.invoke({"messages": [HumanMessage(content=question)]})
         last_message = response["messages"][-1]
-        data = ast.literal_eval(last_message.content)
-        answer = data["choices"][0]["message"]["content"]
+        answer = last_message.content
 
         print(answer)
 

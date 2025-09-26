@@ -1,71 +1,67 @@
-from langgraph.graph import StateGraph, START, END
-from langchain_core.messages import HumanMessage, AIMessage
-import requests, os
+import os
 import operator
-from typing import TypedDict, Annotated, List, Optional, Sequence
+import anthropic
+import asyncio
+from typing import Annotated
 from dotenv import load_dotenv
+from sqlalchemy import text
+from backend.db.session import SessionLocal
+from langchain_core.messages import HumanMessage, AIMessage, BaseMessage
+from langgraph.graph import StateGraph, START, END
 
 load_dotenv()
 
-ENDPOINT = os.getenv("WX_ENDPOINT")
-API_KEY  = os.getenv("WX_API_KEY")
-
-def get_iam_token(api_key: str) -> str:
-    resp = requests.post(
-        "https://iam.cloud.ibm.com/identity/token",
-        data={
-            "apikey": api_key,
-            "grant_type": "urn:ibm:params:oauth:grant-type:apikey"
-        },
-        headers={"Content-Type": "application/x-www-form-urlencoded"}
-    )
-    resp.raise_for_status()
-    return resp.json()["access_token"]
+API_KEY = os.getenv("ANTHROPIC_API_KEY")
+client = anthropic.Anthropic(api_key=API_KEY)
 
 class ChatState(dict):
-    messages: Annotated[list[dict], operator.add]
+    messages: Annotated[list[BaseMessage], operator.add]
+
+
+async def get_latest_news(n: int = 7):
+    async with SessionLocal() as session:
+        result = await session.execute(
+            text("""
+                SELECT title, summary
+                FROM articles
+                ORDER BY published_at DESC
+                LIMIT :n
+            """),
+            {"n": n}
+        )
+        rows = result.mappings().all()
+        return [{"title": r["title"], "summary": r["summary"]} for r in rows]
 
 def user_input(state: ChatState) -> ChatState:
     return state
 
-def rag_call(state: ChatState) -> ChatState:
+async def rag_call(state: ChatState) -> ChatState:
     user_msg = state["messages"][-1].content
-    token = get_iam_token(API_KEY)
 
-    payload = {
-        "messages": [
-            {"role": "user", "content": user_msg}
-        ]
-    }
+    news_items = await get_latest_news(7)
+    news_text = "\n\n".join([f"- {n['title']}: {n['summary']}" for n in news_items])
 
-    r = requests.post(
-        ENDPOINT,
-        headers={
-            "Authorization": f"Bearer {token}",
-            "Content-Type": "application/json"
-        },
-        json=payload,
-        timeout=60
+    prompt = f"""
+    You are a financial assistant.
+    Here are the 7 latest news articles:
+    
+    {news_text}
+    
+    User asks: {user_msg}
+    
+    Please respond with a concise summary and key implications for markets.
+    """
+
+    resp = client.messages.create(
+        model="claude-sonnet-4-20250514",  # Sonnet 4
+        max_tokens=800,
+        messages=[{"role": "user", "content": prompt}]
     )
 
-    try:
-        r.raise_for_status()
-    except Exception:
-        print("❌ Error:", r.text)
-        raise
-
-    data = r.json()
-    answer = None
-    if "results" in data:
-        answer = data["results"][0].get("generated_text") or str(data["results"][0])
-    elif "output" in data:
-        answer = data["output"]
-    else:
-        answer = str(data)
+    answer = "\n".join(block.text for block in resp.content if block.type == "text")
 
     state["messages"].append(AIMessage(content=answer))
     return state
-
 
 builder = StateGraph(ChatState)
 builder.add_node("User Input", user_input)
@@ -77,3 +73,12 @@ builder.add_edge("RAG", END)
 
 graph = builder.compile()
 
+
+if __name__ == "__main__":
+    async def main():
+        out = await graph.ainvoke({
+            "messages": [HumanMessage(content="What do the latest news mean for tech stocks?")]
+        })
+        print(out["messages"][-1].content)
+
+    asyncio.run(main())
