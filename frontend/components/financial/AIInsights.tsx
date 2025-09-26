@@ -1,4 +1,3 @@
-import React from 'react';
 import { View, Text } from 'react-native';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
@@ -79,7 +78,7 @@ export const AIInsights: React.FC = () => {
       <View className="mb-4 flex-row items-center gap-2">
         <Sparkles size={20} color="#A855F7" />
         {/* purple-500 */}
-        <Text className="text-foreground text-lg font-semibold">AI Insights</Text>
+        <Text className="text-lg font-semibold text-foreground">AI Insights</Text>
         <Badge variant="outline" className="border-purple-300 text-purple-500" label="Premium" />
       </View>
 
@@ -114,11 +113,11 @@ export const AIInsights: React.FC = () => {
                     <View className="flex-row items-center gap-1">
                       <View className="h-1.5 w-16 overflow-hidden rounded-full bg-gray-200">
                         <View
-                          className="bg-primary h-full"
+                          className="h-full bg-primary"
                           style={{ width: `${insight.confidence}%` }}
                         />
                       </View>
-                      <Text className="text-primary text-xs font-medium">
+                      <Text className="text-xs font-medium text-primary">
                         {insight.confidence}%
                       </Text>
                     </View>

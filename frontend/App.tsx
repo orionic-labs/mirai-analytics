@@ -6,6 +6,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ElevenLabsProvider } from '@elevenlabs/react-native';
 import { StatusBar } from 'expo-status-bar';
 import Toast from 'react-native-toast-message';
 
@@ -78,24 +79,26 @@ export default function App() {
   return (
     <SafeAreaProvider>
       {/* ONE SafeAreaView for the whole app (top only) */}
-      <SafeAreaView style={{ flex: 1 }} edges={['top']}>
-        <QueryClientProvider client={queryClient}>
-          <NavigationContainer>
-            <Stack.Navigator screenOptions={{ headerShown: false }}>
-              {isOnboarded ? (
-                <Stack.Screen name="Main" component={MainTabs} />
-              ) : (
-                <Stack.Screen name="Onboarding">
-                  {() => <OnboardingFlow onComplete={handleOnboardingComplete} />}
-                </Stack.Screen>
-              )}
-            </Stack.Navigator>
-          </NavigationContainer>
+      <SafeAreaView style={{ flex: 1 }}>
+        <ElevenLabsProvider>
+          <QueryClientProvider client={queryClient}>
+            <NavigationContainer>
+              <Stack.Navigator screenOptions={{ headerShown: false }}>
+                {isOnboarded ? (
+                  <Stack.Screen name="Main" component={MainTabs} />
+                ) : (
+                  <Stack.Screen name="Onboarding">
+                    {() => <OnboardingFlow onComplete={handleOnboardingComplete} />}
+                  </Stack.Screen>
+                )}
+              </Stack.Navigator>
+            </NavigationContainer>
 
-          {/* keep non-navigation stuff OUTSIDE the container */}
-          <Toast />
-          <StatusBar style="auto" />
-        </QueryClientProvider>
+            {/* keep non-navigation stuff OUTSIDE the container */}
+            <Toast />
+            <StatusBar style="auto" />
+          </QueryClientProvider>
+        </ElevenLabsProvider>
       </SafeAreaView>
     </SafeAreaProvider>
   );

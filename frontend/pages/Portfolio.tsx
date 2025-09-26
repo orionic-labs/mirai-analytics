@@ -1,8 +1,16 @@
-import React, { useState } from 'react';
-import { View, Text, ScrollView, Pressable } from 'react-native';
-import { TrendingUp, TrendingDown, AlertCircle, PieChart, Activity } from 'lucide-react-native';
+import { useCallback, useEffect, useState } from 'react';
+import {
+  View,
+  Text,
+  ScrollView,
+  Pressable,
+  ActivityIndicator,
+  RefreshControl,
+  StyleSheet,
+} from 'react-native';
+import { TrendingUp, TrendingDown, AlertCircle } from 'lucide-react-native';
 
-// --- local primitives (navigation-free) ---
+/* --- local primitives (navigation-free) --- */
 const Surface = ({ children, style }: { children: React.ReactNode; style?: any }) => (
   <View
     style={[
@@ -65,366 +73,248 @@ const Btn = ({
     {children}
   </Pressable>
 );
-// ------------------------------------------
+/* ------------------------------------------ */
 
-interface Holding {
-  symbol: string;
-  name: string;
-  value: number;
-  shares: number;
-  price: number;
-  change: number;
-  changePercent: number;
-  allocation: number;
-  newsImpact?: boolean;
-}
-interface PortfolioData {
-  totalValue: number;
-  totalChange: number;
-  totalChangePercent: number;
-  dayRange: { low: number; high: number };
-  holdings: Holding[];
-}
-
-const portfolioData: PortfolioData = {
-  totalValue: 125430.5,
-  totalChange: 2341.2,
-  totalChangePercent: 1.87,
-  dayRange: { low: 123089.3, high: 125780.9 },
-  holdings: [
-    {
-      symbol: 'AAPL',
-      name: 'Apple Inc.',
-      value: 25086.1,
-      shares: 140,
-      price: 179.18,
-      change: 2.45,
-      changePercent: 1.39,
-      allocation: 20.0,
-      newsImpact: true,
-    },
-    {
-      symbol: 'MSFT',
-      name: 'Microsoft Corp.',
-      value: 22654.8,
-      shares: 65,
-      price: 348.53,
-      change: -4.67,
-      changePercent: -1.32,
-      allocation: 18.1,
-    },
-    {
-      symbol: 'NVDA',
-      name: 'NVIDIA Corp.',
-      value: 18742.2,
-      shares: 45,
-      price: 416.49,
-      change: 12.85,
-      changePercent: 3.18,
-      allocation: 14.9,
-      newsImpact: true,
-    },
-    {
-      symbol: 'GOOGL',
-      name: 'Alphabet Inc.',
-      value: 15234.7,
-      shares: 112,
-      price: 136.02,
-      change: 1.89,
-      changePercent: 1.41,
-      allocation: 12.1,
-    },
-    {
-      symbol: 'TSLA',
-      name: 'Tesla Inc.',
-      value: 12845.6,
-      shares: 78,
-      price: 164.69,
-      change: -8.32,
-      changePercent: -4.81,
-      allocation: 10.2,
-    },
-  ],
+/** Backend item shape */
+type BackendHolding = {
+  company: string;
+  ticker: string;
+  last_price?: number;
+  allocation_percent: number;
+  change_7d?: number;
+  trend?: 'up' | 'down' | 'flat' | string;
+  error?: string;
 };
 
-const assetAllocation = [
-  { category: 'Technology', percentage: 65, color: '#3b82f6' },
-  { category: 'Healthcare', percentage: 15, color: '#22c55e' },
-  { category: 'Finance', percentage: 12, color: '#eab308' },
-  { category: 'Energy', percentage: 8, color: '#ef4444' },
-];
+/** ENV base — use whichever you already set, falls back to localhost */
+const API_BASE =
+  process.env.EXPO_PUBLIC_API_BASE_URL ??
+  process.env.EXPO_PUBLIC_BACKEND_URL ??
+  'http://localhost:8000';
 
-function Segmented({
-  value,
-  onChange,
-}: {
-  value: 'holdings' | 'allocation';
-  onChange: (v: 'holdings' | 'allocation') => void;
-}) {
-  return (
-    <View
-      style={{
-        backgroundColor: '#f3f4f6',
-        height: 40,
-        borderRadius: 10,
-        padding: 4,
-        flexDirection: 'row',
-        alignItems: 'center',
-      }}>
-      {(['holdings', 'allocation'] as const).map((k) => {
-        const active = value === k;
-        return (
-          <Pressable
-            key={k}
-            onPress={() => onChange(k)}
-            style={[
-              {
-                flex: 1,
-                alignItems: 'center',
-                justifyContent: 'center',
-                borderRadius: 8,
-                paddingVertical: 6,
-              },
-              active && {
-                backgroundColor: 'white',
-                elevation: 1,
-                shadowColor: '#000',
-                shadowOpacity: 0.05,
-                shadowRadius: 2,
-                shadowOffset: { width: 0, height: 1 },
-              },
-            ]}>
-            <Text
-              style={{ fontSize: 14, fontWeight: '600', color: active ? '#111827' : '#6b7280' }}>
-              {k === 'holdings' ? 'Holdings' : 'Allocation'}
-            </Text>
-          </Pressable>
-        );
-      })}
-    </View>
-  );
+/** Best-effort extraction to support a few plausible response shapes */
+function extractHoldings(json: any): BackendHolding[] {
+  const candidateRoots: any[] = [
+    json?.portfolio,
+    json?.results,
+    json, // just in case the API already returns an array at root
+  ].filter(Boolean);
+
+  for (const root of candidateRoots) {
+    if (Array.isArray(root)) return root as BackendHolding[];
+    if (root && typeof root === 'object') {
+      // look for the first array field that looks like holdings
+      const arr = Object.values(root).find(
+        (v) =>
+          Array.isArray(v) &&
+          v.some(
+            (x: any) =>
+              x &&
+              typeof x === 'object' &&
+              ('ticker' in x || 'company' in x || 'allocation_percent' in x)
+          )
+      );
+      if (Array.isArray(arr)) return arr as BackendHolding[];
+    }
+  }
+  return [];
 }
 
 export const Portfolio: React.FC = () => {
-  const [tab, setTab] = useState<'holdings' | 'allocation'>('holdings');
+  const [items, setItems] = useState<BackendHolding[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const fmt = (v: number) =>
-    new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 2,
-    }).format(v);
+  const fetchData = useCallback(async () => {
+    setErr(null);
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/portfolio/current_status`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = await res.json();
+      const holdings = extractHoldings(json);
+      setItems(holdings);
+    } catch (e: any) {
+      setErr(e?.message || 'Failed to load portfolio');
+      setItems([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await fetchData();
+    } finally {
+      setRefreshing(false);
+    }
+  }, [fetchData]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  const upColor = '#10b981';
+  const downColor = '#ef4444';
+  const gray = '#6b7280';
+
+  const fmtPct = (v?: number) =>
+    typeof v === 'number' && !Number.isNaN(v) ? `${v >= 0 ? '' : ''}${v.toFixed(2)}%` : '—';
+  const fmtPrice = (v?: number) => (typeof v === 'number' && !Number.isNaN(v) ? v.toFixed(2) : '—');
 
   return (
-    <ScrollView style={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 96 }}>
+    <ScrollView
+      style={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 96 }}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
       <View style={{ gap: 20 }}>
         {/* Header */}
         <View
           style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
           <Text style={{ fontSize: 22, fontWeight: '800' }}>Portfolio</Text>
-          <Btn outline style={{ flexDirection: 'row' }}>
-            <Activity size={16} color="#111827" />
-            <Text style={{ marginLeft: 6, color: '#111827' }}>Analytics</Text>
+          <Btn outline onPress={fetchData}>
+            <Text style={{ color: '#111827' }}>Refresh</Text>
           </Btn>
         </View>
 
-        {/* Summary */}
-        <Surface>
-          <View style={{ gap: 12 }}>
-            <View
-              style={{
-                flexDirection: 'row',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-              }}>
-              <View>
-                <Text style={{ color: '#6b7280', fontSize: 12 }}>Total Value</Text>
-                <Text style={{ fontSize: 28, fontWeight: '800' }}>
-                  {fmt(portfolioData.totalValue)}
-                </Text>
-              </View>
-              <View style={{ alignItems: 'flex-end' }}>
-                <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
-                  {portfolioData.totalChange >= 0 ? (
-                    <TrendingUp size={20} color="#10b981" />
-                  ) : (
-                    <TrendingDown size={20} color="#ef4444" />
-                  )}
-                  <Text
-                    style={{
-                      fontSize: 16,
-                      fontWeight: '700',
-                      color: portfolioData.totalChange >= 0 ? '#10b981' : '#ef4444',
-                    }}>
-                    {fmt(Math.abs(portfolioData.totalChange))}
-                  </Text>
-                </View>
-                <Text
-                  style={{
-                    fontSize: 13,
-                    color: portfolioData.totalChange >= 0 ? '#10b981' : '#ef4444',
-                  }}>
-                  ({portfolioData.totalChangePercent >= 0 ? '+' : ''}
-                  {portfolioData.totalChangePercent}%)
-                </Text>
-              </View>
-            </View>
-
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-              <Text style={{ color: '#6b7280', fontSize: 12 }}>Day Range</Text>
-              <Text style={{ color: '#6b7280', fontSize: 12 }}>
-                {fmt(portfolioData.dayRange.low)} – {fmt(portfolioData.dayRange.high)}
-              </Text>
-            </View>
-          </View>
-        </Surface>
-
-        {/* Segmented */}
-        <Segmented value={tab} onChange={setTab} />
-
-        {/* Holdings */}
-        {tab === 'holdings' && (
-          <View style={{ gap: 16, marginTop: 12 }}>
-            {portfolioData.holdings.map((h) => (
-              <Surface key={h.symbol} style={[h.newsImpact && { borderColor: '#e9d5ff' }]}>
-                <View style={{ gap: 12 }}>
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                    {/* Left */}
-                    <View style={{ flex: 1, paddingRight: 8 }}>
-                      <View
-                        style={{
-                          flexDirection: 'row',
-                          alignItems: 'center',
-                          gap: 8,
-                          marginBottom: 4,
-                        }}>
-                        <Text style={{ fontWeight: '700' }}>{h.symbol}</Text>
-                        {h.newsImpact && <AlertCircle size={16} color="#8b5cf6" />}
-                      </View>
-                      <Text style={{ color: '#6b7280', fontSize: 13, marginBottom: 4 }}>
-                        {h.name}
-                      </Text>
-                      <View style={{ flexDirection: 'row', gap: 16 }}>
-                        <Text style={{ color: '#6b7280', fontSize: 12 }}>{h.shares} shares</Text>
-                        <Text style={{ color: '#6b7280', fontSize: 12 }}>@{fmt(h.price)}</Text>
-                        <Text style={{ color: '#6b7280', fontSize: 12 }}>
-                          {h.allocation}% allocation
-                        </Text>
-                      </View>
-                    </View>
-                    {/* Right */}
-                    <View style={{ alignItems: 'flex-end' }}>
-                      <Text style={{ fontWeight: '700', marginBottom: 4 }}>{fmt(h.value)}</Text>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                        {h.change >= 0 ? (
-                          <TrendingUp size={12} color="#10b981" />
-                        ) : (
-                          <TrendingDown size={12} color="#ef4444" />
-                        )}
-                        <Text
-                          style={{
-                            fontSize: 13,
-                            fontWeight: '600',
-                            color: h.change >= 0 ? '#10b981' : '#ef4444',
-                          }}>
-                          {fmt(Math.abs(h.change))}
-                        </Text>
-                      </View>
-                      <Text style={{ fontSize: 12, color: h.change >= 0 ? '#10b981' : '#ef4444' }}>
-                        ({h.changePercent >= 0 ? '+' : ''}
-                        {h.changePercent}%)
-                      </Text>
-                    </View>
-                  </View>
-
-                  {h.newsImpact && (
-                    <View
-                      style={{
-                        borderTopWidth: 1,
-                        borderTopColor: '#e5e7eb',
-                        marginTop: 6,
-                        paddingTop: 8,
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        gap: 8,
-                      }}>
-                      <Pill label="News Impact" style={{ borderColor: '#e9d5ff' }} />
-                      <Btn outline style={{ marginLeft: 'auto' }}>
-                        <Text>View Details</Text>
-                      </Btn>
-                    </View>
-                  )}
-                </View>
-              </Surface>
-            ))}
+        {/* Loading / Error */}
+        {loading && (
+          <View style={{ paddingVertical: 24, alignItems: 'center' }}>
+            <ActivityIndicator />
+            <Text style={{ marginTop: 8, color: gray }}>Loading portfolio…</Text>
           </View>
         )}
+        {!loading && err && (
+          <Surface>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <AlertCircle size={18} color={downColor} />
+              <Text style={{ color: downColor, fontWeight: '600' }}>Failed to load: {err}</Text>
+            </View>
+          </Surface>
+        )}
 
-        {/* Allocation */}
-        {tab === 'allocation' && (
-          <View style={{ gap: 16, marginTop: 12 }}>
-            <Surface>
-              <View style={{ gap: 12 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                  <PieChart size={18} color="#3b82f6" />
-                  <Text style={{ fontWeight: '700' }}>Asset Allocation</Text>
-                </View>
+        {/* Holdings list (only backend-supported fields) */}
+        {!loading && !err && (
+          <View style={{ gap: 16 }}>
+            {items.map((h) => {
+              const trendUp = String(h.trend).toLowerCase() === 'up';
+              const trendDown = String(h.trend).toLowerCase() === 'down';
 
-                <View style={{ gap: 16 }}>
-                  {assetAllocation.map((a) => (
-                    <View key={a.category}>
+              return (
+                <Surface
+                  key={`${h.ticker}-${h.company}`}
+                  style={
+                    h.error ? { borderColor: '#fecaca', backgroundColor: '#fff1f2' } : undefined
+                  }>
+                  <View style={{ gap: 12 }}>
+                    {/* Top row: ticker/company + trend */}
+                    <View
+                      style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 12 }}>
+                      <View style={{ flex: 1 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                          <Text style={{ fontWeight: '800' }}>{h.ticker}</Text>
+                        </View>
+                        <Text style={{ color: gray, marginTop: 2 }}>{h.company}</Text>
+                      </View>
+
+                      <View style={{ alignItems: 'flex-end' }}>
+                        {trendUp && (
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                            <TrendingUp size={18} color={upColor} />
+                            <Text style={{ color: upColor, fontWeight: '700' }}>
+                              {fmtPct(h.change_7d)}
+                            </Text>
+                          </View>
+                        )}
+                        {trendDown && (
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                            <TrendingDown size={18} color={downColor} />
+                            <Text style={{ color: downColor, fontWeight: '700' }}>
+                              {fmtPct(h.change_7d)}
+                            </Text>
+                          </View>
+                        )}
+                        {!trendUp && !trendDown && (
+                          <Text style={{ color: gray, fontWeight: '600' }}>
+                            {fmtPct(h.change_7d)}
+                          </Text>
+                        )}
+                      </View>
+                    </View>
+
+                    {/* Last price (if provided) */}
+                    {'last_price' in h && (
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                        <Text style={{ color: gray, fontSize: 12 }}>Last Price</Text>
+                        <Text style={{ fontWeight: '700' }}>{fmtPrice(h.last_price)}</Text>
+                      </View>
+                    )}
+
+                    {/* Allocation bar (always shown, backend provides allocation_percent) */}
+                    <View>
                       <View
                         style={{
                           flexDirection: 'row',
                           justifyContent: 'space-between',
                           marginBottom: 6,
                         }}>
-                        <Text style={{ fontWeight: '600' }}>{a.category}</Text>
-                        <Text style={{ fontWeight: '700', color: a.color }}>{a.percentage}%</Text>
+                        <Text style={{ fontWeight: '600' }}>Allocation</Text>
+                        <Text style={{ fontWeight: '700' }}>{fmtPct(h.allocation_percent)}</Text>
                       </View>
-                      <View
-                        style={{
-                          height: 8,
-                          width: '100%',
-                          overflow: 'hidden',
-                          borderRadius: 999,
-                          backgroundColor: '#e5e7eb',
-                        }}>
+                      <View style={styles.allocTrack}>
                         <View
-                          style={{
-                            height: '100%',
-                            width: `${a.percentage}%`,
-                            borderRadius: 999,
-                            backgroundColor: a.color,
-                          }}
+                          style={[
+                            styles.allocFill,
+                            { width: `${Math.max(0, Math.min(100, h.allocation_percent))}%` },
+                          ]}
                         />
                       </View>
                     </View>
-                  ))}
-                </View>
-              </View>
-            </Surface>
 
-            <Surface>
-              <Text style={{ fontWeight: '700', marginBottom: 6 }}>Rebalancing Suggestions</Text>
-              <View style={{ gap: 4 }}>
-                <Text style={{ color: '#6b7280', fontSize: 13 }}>
-                  • Consider reducing tech exposure to 60% for better diversification
-                </Text>
-                <Text style={{ color: '#6b7280', fontSize: 13 }}>
-                  • Healthcare allocation could be increased to 18%
-                </Text>
-                <Text style={{ color: '#6b7280', fontSize: 13 }}>
-                  • Energy sector showing strong momentum for Q1 2024
-                </Text>
-              </View>
-              <Btn style={{ marginTop: 10 }}>
-                <Text style={{ color: 'white' }}>View Full Analysis</Text>
-              </Btn>
-            </Surface>
+                    {/* Error row if present */}
+                    {h.error && (
+                      <View
+                        style={{
+                          borderTopWidth: 1,
+                          borderTopColor: '#fecaca',
+                          marginTop: 6,
+                          paddingTop: 8,
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          gap: 8,
+                        }}>
+                        <AlertCircle size={16} color={downColor} />
+                        <Text style={{ color: downColor, fontSize: 13, flex: 1 }}>{h.error}</Text>
+                        <Pill label="Partial data" style={{ borderColor: '#fecaca' }} />
+                      </View>
+                    )}
+                  </View>
+                </Surface>
+              );
+            })}
+
+            {items.length === 0 && (
+              <Text style={{ color: gray }}>No positions returned by the backend.</Text>
+            )}
           </View>
         )}
       </View>
     </ScrollView>
   );
 };
+
+const styles = StyleSheet.create({
+  allocTrack: {
+    height: 8,
+    width: '100%',
+    overflow: 'hidden',
+    borderRadius: 999,
+    backgroundColor: '#e5e7eb',
+  },
+  allocFill: {
+    height: '100%',
+    borderRadius: 999,
+    backgroundColor: '#3b82f6',
+  },
+});
