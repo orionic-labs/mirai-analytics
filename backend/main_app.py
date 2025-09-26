@@ -1,5 +1,5 @@
 from backend.app import create_app
-from core.tasks import register_tasks
+from backend.core.tasks import register_tasks
 from quart_tasks import QuartTasks
 from datetime import timedelta
 from backend.pipelines.graphs import graph

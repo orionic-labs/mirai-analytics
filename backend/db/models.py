@@ -1,10 +1,15 @@
-from sqlalchemy import Column, String, DateTime, Numeric, Boolean, ForeignKey, Integer
+from sqlalchemy import Column, String, DateTime, Numeric, Boolean, ForeignKey, Integer, SmallInteger
 from sqlalchemy.orm import declarative_base, relationship
 from sqlalchemy.dialects.postgresql import UUID
 import uuid
 from sqlalchemy import Column, String, Float, ForeignKey, Integer
 from backend.utils.helpers import utcnow
 from backend.db.types import Vector1536
+from sqlalchemy import (
+    Column, Integer, String, Boolean, DateTime, ForeignKey, UniqueConstraint, Index
+)
+from sqlalchemy.dialects.postgresql import JSONB, ARRAY
+from backend.utils.helpers import utcnow
 
 Base = declarative_base()
 
@@ -31,6 +36,41 @@ class Article(Base):
     image_url = Column(String, nullable=True)
 
 
+class ArticleAnalysis(Base):
+    __tablename__ = "article_analysis"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    article_url = Column(String, ForeignKey("articles.url", ondelete="CASCADE"), unique=True, nullable=False)
+
+    cluster_ids = Column(ARRAY(String), nullable=True)
+    event_type = Column(String, nullable=False)
+    tickers = Column(ARRAY(String), nullable=True)
+    companies = Column(ARRAY(String), nullable=True)
+    sectors = Column(ARRAY(String), nullable=True)
+    geos = Column(ARRAY(String), nullable=True)
+    numerics = Column(JSONB, nullable=True)
+
+    impact_score = Column(Integer, nullable=False)
+    confidence = Column(Integer, nullable=False)
+    novelty = Column(Integer, nullable=False)
+
+    executive_summary = Column(String, nullable=False)
+    bullets = Column(JSONB, nullable=False)
+    actions = Column(JSONB, nullable=True)
+    risks = Column(JSONB, nullable=True)
+    citations = Column(JSONB, nullable=False)
+
+    created_at = Column(DateTime(timezone=True), nullable=False, default=utcnow)
+    important = Column(Boolean, nullable=False, default=False)
+    markets = Column(ARRAY(String), nullable=True)
+
+    __table_args__ = (
+        UniqueConstraint("article_url", name="uq_article_analysis_article_url"),
+        Index("ix_article_analysis_id", "id"),
+    )
+
+
+
 class Account(Base):
     __tablename__ = "accounts"
 
@@ -44,8 +84,9 @@ class Account(Base):
 class Assets(Base):
     __tablename__ = "assets"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    asset_name = Column(String, nullable=False)
+    id = Column(SmallInteger, primary_key=True, autoincrement=True)
+    ticker = Column(String, nullable=False)
+    label = Column(String, nullable=False)
 
 class EntitySentiment(Base):
     __tablename__ = "entity_sentiments"
@@ -53,7 +94,7 @@ class EntitySentiment(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
 
     article_id = Column(Integer, ForeignKey("articles.id", ondelete="CASCADE"), nullable=False)
-    asset_id = Column(UUID(as_uuid=True), ForeignKey("assets.id", ondelete="CASCADE"), nullable=False)
+    asset_id = Column(SmallInteger, ForeignKey("assets.id", ondelete="CASCADE"), nullable=False)
 
     label = Column(String, nullable=False)
     score = Column(Float, nullable=False)
@@ -77,26 +118,3 @@ class Source(Base):
     created_at = Column(DateTime(timezone=True), default=utcnow, nullable=False)
 
 
-class Client(Base):
-    __tablename__ = "clients"
-
-    client_id = Column(Integer, primary_key=True, autoincrement=True)
-    name = Column(String, nullable=False)
-    contact_name = Column(String, nullable=True)
-    contact_email = Column(String, nullable=True)
-    status = Column(String, default="active", nullable=False)
-
-    allocations = relationship(
-        "Allocation", back_populates="client", cascade="all, delete-orphan"
-    )
-
-
-class Allocation(Base):
-    __tablename__ = "allocations"
-
-    allocation_id = Column(Integer, primary_key=True, autoincrement=True)
-    client_id = Column(Integer, ForeignKey("clients.client_id", ondelete="CASCADE"))
-    asset_class = Column(String, nullable=False)
-    allocation_percent = Column(Numeric(5, 2), nullable=False)
-
-    client = relationship("Client", back_populates="allocations")
