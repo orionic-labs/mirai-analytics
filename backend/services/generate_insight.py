@@ -32,7 +32,7 @@ async def generate_insights_for_article(article_json: dict) -> dict:
         "You will be given one news article (title, summary, and full text) and a user's portfolio(asset allocation).\n"
         "Your task is to generate a structured JSON object with the following fields:\n\n"
         "1. title: Repeat the article title exactly.\n"
-        "2. short_summary: A concise summary of the article in **12 words or fewer**.\n"
+        "2. short_summary: A concise summary of the article in **20 words or fewer**.\n"
         "3. confidence_score: An integer from 0 to 100 indicating your confidence in the insight.\n"
         "Do not include any extra text, explanations, or formatting — only valid JSON.\n\n"
         f"User's portfolio: {portfolio_info}\n"
@@ -49,7 +49,7 @@ async def generate_insights_for_article(article_json: dict) -> dict:
 
 
     response = await client.chat.completions.create(
-        model="claude-3-5-sonnet-latest",  # Claude via OpenAI API
+        model="gpt-4.1-mini",  # Claude via OpenAI API
         messages=[{"role": "user", "content": prompt}],
         max_tokens=400,
     )
@@ -58,6 +58,6 @@ async def generate_insights_for_article(article_json: dict) -> dict:
 
     # Return the article with insights attached
     return {
-        **article_json,
+        
         "insights": insights_text,
     }

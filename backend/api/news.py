@@ -5,7 +5,7 @@ from backend.db.session import SessionLocal
 from pydantic import ValidationError
 from backend.schemas import AnalyzeNewsRequest, ImportancePayload
 
-bp = Blueprint("news", __name__)
+bp = Blueprint("news1", __name__)
 
 
 async def analyze_article_async(title: str, text: str, language: str = "en"):

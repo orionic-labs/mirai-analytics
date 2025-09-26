@@ -4,7 +4,7 @@ from backend.pipelines.chatbot import graph as chatbot_graph
 import ast
 from langchain_core.messages import HumanMessage
 
-bp = Blueprint("chatbot", __name__)
+bp = Blueprint("chatbot1", __name__)
 
 
 @bp.post("/chatbot/send_message_chat")
