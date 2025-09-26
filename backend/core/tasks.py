@@ -2,7 +2,7 @@
 from __future__ import annotations
 from datetime import timedelta
 from quart_tasks import QuartTasks
-from pipelines.graphs.graph import graph
+from backend.pipelines.graphs.graph import graph
 
 
 def register_tasks(app):

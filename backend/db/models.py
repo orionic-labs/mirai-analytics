@@ -10,6 +10,11 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import JSONB, ARRAY
 from backend.utils.helpers import utcnow
+from sqlalchemy import (
+    Column, Integer, String, Boolean, DateTime, ForeignKey, UniqueConstraint, Index
+)
+from sqlalchemy.dialects.postgresql import JSONB, ARRAY
+from backend.utils.helpers import utcnow
 
 Base = declarative_base()
 
@@ -87,6 +92,9 @@ class Assets(Base):
     id = Column(SmallInteger, primary_key=True, autoincrement=True)
     ticker = Column(String, nullable=False)
     label = Column(String, nullable=False)
+    id = Column(SmallInteger, primary_key=True, autoincrement=True)
+    ticker = Column(String, nullable=False)
+    label = Column(String, nullable=False)
 
 class EntitySentiment(Base):
     __tablename__ = "entity_sentiments"
@@ -94,6 +102,7 @@ class EntitySentiment(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
 
     article_id = Column(Integer, ForeignKey("articles.id", ondelete="CASCADE"), nullable=False)
+    asset_id = Column(SmallInteger, ForeignKey("assets.id", ondelete="CASCADE"), nullable=False)
     asset_id = Column(SmallInteger, ForeignKey("assets.id", ondelete="CASCADE"), nullable=False)
 
     label = Column(String, nullable=False)

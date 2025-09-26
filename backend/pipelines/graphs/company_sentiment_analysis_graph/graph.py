@@ -15,7 +15,7 @@ from backend.pipelines.graphs.company_sentiment_analysis_graph.nodes.entity_sent
 async def get_asset_id_by_name(asset_name: str):
     async with AsyncSessionLocal() as session:
         result = await session.execute(
-            Assets.__table__.select().where(Assets.asset_name == asset_name)
+            Assets.__table__.select().where(Assets.label == asset_name)
         )
         asset = result.fetchone()
         if not asset:

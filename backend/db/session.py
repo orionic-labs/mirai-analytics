@@ -4,6 +4,7 @@ from sqlalchemy.orm import DeclarativeBase
 from dotenv import load_dotenv
 
 load_dotenv()
+
 DATABASE_URL = os.environ["DATABASE_URL"]
 
 engine = create_async_engine(DATABASE_URL, pool_pre_ping=True)

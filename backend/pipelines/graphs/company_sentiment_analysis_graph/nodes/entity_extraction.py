@@ -39,25 +39,13 @@ Return ONLY a single JSON list.
 Each element of the list must be a dictionary with the following keys:
 
 - **entity**: One of the FIXED keys from this list only:
-  ["fx_usd", "fx_chf", "fx_eur", "fx_jpy", "gold", "global_gov_bonds", "global_corp_bonds", "usa_equities", "emerging_markets", "eu_equities", "japan_equities"].
+  ["Apple", "NVIDIA", "Microsoft", "Amazon", "Alphabet", "Meta", "JPMorgan", "Visa", "Oracle", "Mastercard", "Broadcom"]
 - **context**: A short description (1–2 sentences) of how this entity is relevant in the article.  
   The context should summarize the article fragment, not just repeat a raw sentence.  
   Mention company names, indices, or assets as they appear, but connect them explicitly to the portfolio entity.
 
 **Extraction Rules:**
-- You MUST choose entity strictly from the fixed list above. No other values are allowed.
-- Map individual companies, indices, or assets to the correct portfolio bucket:
-  - U.S. companies/indices → "usa_equities"
-  - European companies/indices → "eu_equities"
-  - Japanese companies/indices → "japan_equities"
-  - References to USD → "fx_usd"
-  - References to EUR → "fx_eur"
-  - References to JPY → "fx_jpy"
-  - References to CHF → "fx_chf"
-  - References to gold → "gold"
-  - Mentions of global bonds (yields, Treasuries, Bunds, JGBs, etc.) → "global_gov_bonds"
-  - Mentions of corporate bonds/credit spreads → "global_corp_bonds"
-  - Mentions of developing countries or EM stocks/currencies → "emerging_markets"
+- You MUST choose entity strictly from the fixed list above. No other values are allowed."
   
 - If the article has no relation to any of the listed entities, return [].
 - Do not include people.
