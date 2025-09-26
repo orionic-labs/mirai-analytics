@@ -1,10 +1,9 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, Pressable } from 'react-native';
+import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { TrendingUp, Clock, ExternalLink, Sparkles } from 'lucide-react-native';
-import { cn } from '@/lib/utils';
 
 interface NewsItem {
   id: string;
@@ -74,7 +73,7 @@ const aiTips = [
   },
 ];
 
-/* --- local segmented control (pure RN, no nav) --- */
+/* --- local segmented control (pure RN) --- */
 function Segmented({
   value,
   onChange,
@@ -82,29 +81,26 @@ function Segmented({
   value: 'latest' | 'portfolio' | 'ai-tips';
   onChange: (v: 'latest' | 'portfolio' | 'ai-tips') => void;
 }) {
+  const options = [
+    { key: 'latest', label: 'Latest News' },
+    { key: 'portfolio', label: 'Portfolio Impact' },
+    { key: 'ai-tips', label: 'AI Tips' },
+  ] as const;
+
   return (
-    <View className="bg-muted h-10 flex-row items-center rounded-md p-1">
-      {(
-        [
-          { key: 'latest', label: 'Latest News' },
-          { key: 'portfolio', label: 'Portfolio Impact' },
-          { key: 'ai-tips', label: 'AI Tips' },
-        ] as const
-      ).map((opt) => {
+    <View style={styles.segmented}>
+      {options.map((opt) => {
         const active = value === opt.key;
         return (
           <Pressable
             key={opt.key}
             onPress={() => onChange(opt.key)}
-            className={cn(
-              'flex-1 items-center justify-center rounded-sm px-3 py-1.5',
-              active && 'bg-background shadow-sm'
-            )}>
+            style={[styles.segmentButton, active && styles.segmentButtonActive]}>
             <Text
-              className={cn(
-                'text-sm font-medium',
-                active ? 'text-foreground' : 'text-muted-foreground'
-              )}>
+              style={[
+                styles.segmentText,
+                active ? styles.segmentTextActive : styles.segmentTextInactive,
+              ]}>
               {opt.label}
             </Text>
           </Pressable>
@@ -118,89 +114,59 @@ function Segmented({
 export const News: React.FC = () => {
   const [tab, setTab] = useState<'latest' | 'portfolio' | 'ai-tips'>('latest');
 
-  const getImpactColor = (impact: string) => {
-    switch (impact) {
-      case 'high':
-        return 'text-red-500 border-red-300';
-      case 'medium':
-        return 'text-yellow-500 border-yellow-300';
-      case 'low':
-        return 'text-green-500 border-green-300';
-      default:
-        return 'text-gray-500';
-    }
-  };
-
-  const getRelevanceColor = (relevance: string) => {
-    switch (relevance) {
-      case 'portfolio':
-        return 'text-purple-500 border-purple-300';
-      case 'sector':
-        return 'text-blue-500 border-blue-300';
-      default:
-        return 'text-gray-500 border-gray-300';
-    }
-  };
-
   return (
-    <ScrollView className="px-4 pb-24 pt-4">
-      <View className="gap-5">
+    <ScrollView contentContainerStyle={styles.container}>
+      <View style={styles.contentWrapper}>
         {/* Header */}
-        <View className="flex-row items-center justify-between">
-          <Text className="text-2xl font-bold">Market News</Text>
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Market News</Text>
           <Button variant="outline" size="sm">
-            <ExternalLink size={16} className="mr-2" />
+            <ExternalLink size={16} style={{ marginRight: 6 }} />
             <Text>Sources</Text>
           </Button>
         </View>
 
-        {/* Tabs (local segmented) */}
+        {/* Tabs */}
         <Segmented value={tab} onChange={setTab} />
 
         {/* Latest News */}
         {tab === 'latest' && (
-          <View className="mt-3 gap-4">
+          <View style={styles.section}>
             {newsData.map((item) => (
-              <Card key={item.id} className="border p-4">
-                <View className="gap-3">
-                  <View className="flex-row items-start justify-between gap-3">
-                    <Text className="flex-1 text-sm font-semibold leading-5">{item.title}</Text>
+              <Card key={item.id} style={styles.card}>
+                <View style={styles.cardBody}>
+                  <View style={styles.cardHeader}>
+                    <Text style={styles.cardTitle}>{item.title}</Text>
                     {item.priceChange && (
                       <View
-                        className={cn(
-                          'flex-row items-center gap-1 text-sm font-medium',
-                          item.trend === 'up' ? 'text-green-500' : 'text-red-500'
-                        )}>
+                        style={[
+                          styles.priceChange,
+                          item.trend === 'up' ? styles.priceUp : styles.priceDown,
+                        ]}>
                         <TrendingUp
                           size={12}
-                          className={cn(item.trend === 'down' && 'rotate-180')}
+                          style={item.trend === 'down' ? { transform: [{ rotate: '180deg' }] } : {}}
                         />
                         <Text>{item.priceChange}</Text>
                       </View>
                     )}
                   </View>
 
-                  <Text className="text-muted-foreground text-sm leading-5">{item.summary}</Text>
+                  <Text style={styles.summary}>{item.summary}</Text>
 
-                  <View className="flex-row items-center justify-between">
-                    <View className="flex-row items-center gap-2">
-                      <Text className="text-muted-foreground text-xs">{item.source}</Text>
-                      <Text className="text-muted-foreground text-xs">•</Text>
-                      <View className="flex-row items-center gap-1">
+                  <View style={styles.footer}>
+                    <View style={styles.sourceRow}>
+                      <Text style={styles.meta}>{item.source}</Text>
+                      <Text style={styles.meta}>•</Text>
+                      <View style={styles.sourceRow}>
                         <Clock size={12} />
-                        <Text className="text-muted-foreground text-xs">{item.timestamp}</Text>
+                        <Text style={styles.meta}>{item.timestamp}</Text>
                       </View>
                     </View>
 
-                    <View className="flex-row gap-2">
-                      <Badge
-                        className={cn('text-xs', getRelevanceColor(item.relevance))}
-                        label={item.relevance}
-                      />
-                      <Badge
-                        className={cn('text-xs', getImpactColor(item.impact))}
-                        label={`${item.impact} impact`}
-                      />
+                    <View style={styles.badges}>
+                      <Badge label={item.relevance} />
+                      <Badge label={`${item.impact} impact`} />
                     </View>
                   </View>
                 </View>
@@ -211,21 +177,18 @@ export const News: React.FC = () => {
 
         {/* Portfolio Impact */}
         {tab === 'portfolio' && (
-          <View className="mt-3 gap-4">
+          <View style={styles.section}>
             {newsData
               .filter((item) => item.relevance === 'portfolio')
               .map((item) => (
-                <Card key={item.id} className="border border-purple-300 bg-purple-50 p-4">
-                  <View className="gap-3">
-                    <View className="flex-row items-start justify-between gap-3">
-                      <Text className="flex-1 text-sm font-semibold leading-5">{item.title}</Text>
-                      <Badge
-                        className="border-purple-300 text-purple-500"
-                        label="Portfolio Impact"
-                      />
+                <Card key={item.id} style={styles.cardHighlight}>
+                  <View style={styles.cardBody}>
+                    <View style={styles.cardHeader}>
+                      <Text style={styles.cardTitle}>{item.title}</Text>
+                      <Badge label="Portfolio Impact" />
                     </View>
-                    <Text className="text-muted-foreground text-sm leading-5">{item.summary}</Text>
-                    <Button variant="outline" size="sm" className="w-full">
+                    <Text style={styles.summary}>{item.summary}</Text>
+                    <Button variant="outline" size="sm" style={{ width: '100%' }}>
                       <Text>View Impact Analysis</Text>
                     </Button>
                   </View>
@@ -236,36 +199,31 @@ export const News: React.FC = () => {
 
         {/* AI Tips */}
         {tab === 'ai-tips' && (
-          <View className="mt-3 gap-4">
+          <View style={styles.section}>
             {aiTips.map((tip) => (
-              <Card key={tip.id} className="border p-4">
-                <View className="gap-3">
-                  <View className="flex-row gap-3">
-                    <Sparkles size={20} className="mt-0.5 text-purple-500" />
-                    <View className="flex-1">
-                      <Text className="mb-1 text-sm font-semibold leading-5">{tip.title}</Text>
-                      <Text className="text-muted-foreground mb-2 text-sm leading-5">
-                        {tip.description}
-                      </Text>
+              <Card key={tip.id} style={styles.card}>
+                <View style={styles.cardBody}>
+                  <View style={styles.tipRow}>
+                    <Sparkles size={20} style={styles.sparkleIcon} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.tipTitle}>{tip.title}</Text>
+                      <Text style={styles.summary}>{tip.description}</Text>
 
-                      <View className="flex-row items-center justify-between">
-                        <View className="flex-row items-center gap-2">
-                          <Text className="text-muted-foreground text-xs">Confidence:</Text>
-                          <View className="flex-row items-center gap-1">
-                            <View className="bg-muted h-1.5 w-16 overflow-hidden rounded-full">
+                      <View style={styles.footer}>
+                        <View style={styles.confidenceRow}>
+                          <Text style={styles.meta}>Confidence:</Text>
+                          <View style={styles.progressRow}>
+                            <View style={styles.progressBar}>
                               <View
-                                className="bg-primary h-full"
-                                style={{ width: `${tip.confidence}%` }}
+                                style={[styles.progressFill, { width: `${tip.confidence}%` }]}
                               />
                             </View>
-                            <Text className="text-primary text-xs font-medium">
-                              {tip.confidence}%
-                            </Text>
+                            <Text style={styles.confidenceText}>{tip.confidence}%</Text>
                           </View>
                         </View>
 
-                        <Button size="sm" className="bg-primary">
-                          <Text className="text-primary-foreground">{tip.action}</Text>
+                        <Button size="sm" style={styles.actionButton}>
+                          <Text style={styles.actionText}>{tip.action}</Text>
                         </Button>
                       </View>
                     </View>
@@ -279,3 +237,108 @@ export const News: React.FC = () => {
     </ScrollView>
   );
 };
+
+const styles = StyleSheet.create({
+  container: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 96,
+  },
+  contentWrapper: {
+    gap: 20,
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  headerTitle: { fontSize: 22, fontWeight: 'bold' },
+  segmented: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: 40,
+    borderRadius: 8,
+    backgroundColor: '#eee',
+    padding: 4,
+  },
+  segmentButton: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 6,
+    borderRadius: 4,
+  },
+  segmentButtonActive: {
+    backgroundColor: '#fff',
+    elevation: 2,
+  },
+  segmentText: { fontSize: 14, fontWeight: '500' },
+  segmentTextActive: { color: '#000' },
+  segmentTextInactive: { color: '#666' },
+
+  section: { marginTop: 12, gap: 16 },
+
+  card: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    padding: 12,
+    borderRadius: 8,
+  },
+  cardHighlight: {
+    borderWidth: 1,
+    borderColor: '#b9a4ff',
+    backgroundColor: '#f4f0ff',
+    padding: 12,
+    borderRadius: 8,
+  },
+  cardBody: { gap: 12 },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  cardTitle: { flex: 1, fontSize: 14, fontWeight: '600', lineHeight: 20 },
+
+  summary: { fontSize: 13, color: '#555', lineHeight: 20 },
+
+  footer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  sourceRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  meta: { fontSize: 11, color: '#777' },
+  badges: { flexDirection: 'row', gap: 8 },
+
+  priceChange: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  priceUp: { color: 'green' },
+  priceDown: { color: 'red' },
+
+  tipRow: { flexDirection: 'row', gap: 12 },
+  sparkleIcon: { color: '#7c3aed', marginTop: 2 },
+  tipTitle: { fontSize: 14, fontWeight: '600', marginBottom: 4 },
+
+  confidenceRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  progressRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  progressBar: {
+    width: 64,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#eee',
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: '#4f46e5',
+  },
+  confidenceText: { fontSize: 11, fontWeight: '500', color: '#4f46e5' },
+
+  actionButton: { backgroundColor: '#4f46e5' },
+  actionText: { color: '#fff' },
+});

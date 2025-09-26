@@ -12,7 +12,7 @@ export const Card = React.forwardRef<
   }
 >(({ className = '', style, children }, ref) => {
   return (
-    <View ref={ref} className={cn('bg-card rounded-lg border', className)} style={style}>
+    <View ref={ref} className={cn('rounded-lg border bg-card', className)} style={style}>
       {children}
     </View>
   );
@@ -63,7 +63,7 @@ export const CardDescription = React.forwardRef<
   }
 >(({ className = '', style, children }, ref) => {
   return (
-    <Text ref={ref} className={cn('text-muted-foreground text-sm', className)} style={style}>
+    <Text ref={ref} className={cn('text-sm text-muted-foreground', className)} style={style}>
       {children}
     </Text>
   );

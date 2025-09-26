@@ -1,12 +1,11 @@
 // pages/Home.tsx
 import React from 'react';
-import { View, Text, ScrollView } from 'react-native';
+import { View, Text, ScrollView, StyleSheet } from 'react-native';
 import { MarketOverview } from '@/components/financial/MarketOverview';
 import { AIInsights } from '@/components/financial/AIInsights';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { TrendingUp, TrendingDown, Bot } from 'lucide-react-native';
-import { cn } from '@/lib/utils';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useNavigation } from '@react-navigation/native';
@@ -18,10 +17,10 @@ type Nav = BottomTabNavigationProp<MainTabParamList, 'Home'>;
 export const Home: React.FC = () => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<Nav>();
-  const marketSentiment = 'bullish';
+  const marketSentiment: 'bullish' | 'bearish' = 'bullish';
 
   return (
-    <View className="flex-1">
+    <View style={styles.container}>
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{
@@ -29,41 +28,86 @@ export const Home: React.FC = () => {
           paddingTop: 16,
           paddingBottom: insets.bottom + 120,
         }}>
-        <View className="gap-6">
-          <View className="bg-muted/30 rounded-lg p-6">
-            <Text className="text-foreground mb-2 text-2xl font-bold">Good morning, Investor</Text>
-            <View className="flex-row items-center gap-2">
-              <Text className="text-muted-foreground text-sm">Market sentiment:</Text>
-              <View className="flex-row items-center gap-1">
+        <View style={styles.contentWrapper}>
+          {/* Greeting + Sentiment */}
+          <View style={styles.greetingCard}>
+            <Text style={styles.greetingText}>Good morning, Investor</Text>
+            <View style={styles.sentimentRow}>
+              <Text style={styles.sentimentLabel}>Market sentiment:</Text>
+              <View style={styles.sentimentValue}>
                 {marketSentiment === 'bullish' ? (
-                  <TrendingUp size={12} className="text-green-500" />
+                  <TrendingUp size={12} color="green" />
                 ) : (
-                  <TrendingDown size={12} className="text-red-500" />
+                  <TrendingDown size={12} color="red" />
                 )}
                 <Badge
-                  className={cn(
-                    marketSentiment === 'bullish'
-                      ? 'border-green-500/50 bg-green-500/10 text-green-500'
-                      : 'border-red-500/50 bg-red-500/10 text-red-500'
-                  )}
                   label={marketSentiment}
+                  style={marketSentiment === 'bullish' ? styles.badgeBullish : styles.badgeBearish}
                 />
               </View>
             </View>
           </View>
 
+          {/* Sections */}
           <MarketOverview />
           <AIInsights />
         </View>
       </ScrollView>
 
+      {/* Floating Assistant Button */}
       <Button
         onPress={() => navigation.navigate('Assistant')}
         size="icon"
-        className="bg-primary absolute h-14 w-14 rounded-full shadow-lg"
-        style={{ right: 16, bottom: insets.bottom + 20 }}>
-        <Bot size={24} className="text-primary-foreground" />
+        style={[styles.fab, { bottom: insets.bottom + 20, right: 16 }]}>
+        <Bot size={24} color="#fff" />
       </Button>
     </View>
   );
 };
+
+const styles = StyleSheet.create({
+  container: { flex: 1 },
+  contentWrapper: { gap: 24 },
+  greetingCard: {
+    backgroundColor: '#f2f2f2',
+    borderRadius: 12,
+    padding: 20,
+  },
+  greetingText: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    marginBottom: 8,
+    color: '#000',
+  },
+  sentimentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  sentimentLabel: { fontSize: 14, color: '#666' },
+  sentimentValue: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  badgeBullish: {
+    borderColor: 'rgba(34,197,94,0.5)',
+    backgroundColor: 'rgba(34,197,94,0.1)',
+    color: 'green',
+  },
+  badgeBearish: {
+    borderColor: 'rgba(239,68,68,0.5)',
+    backgroundColor: 'rgba(239,68,68,0.1)',
+    color: 'red',
+  },
+  fab: {
+    position: 'absolute',
+    height: 56,
+    width: 56,
+    borderRadius: 28,
+    backgroundColor: '#4f46e5',
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 6,
+  },
+});
