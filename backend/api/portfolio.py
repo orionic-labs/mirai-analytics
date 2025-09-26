@@ -8,8 +8,8 @@ from backend.schemas import AnalyzeNewsRequest, ImportancePayload
 bp = Blueprint("news", __name__)
 
 
-@bp.get("/insights")
-async def list_news():
+@bp.get("/portfolio")
+async def portfolio():
     try:
         async with SessionLocal() as session:
             query = text(
