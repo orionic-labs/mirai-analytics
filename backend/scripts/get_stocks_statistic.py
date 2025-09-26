@@ -23,11 +23,32 @@ async def get_current_portfolio():
             allocation_percent = float(row["allocation_percent"])
 
             try:
+                ticker = yf.Ticker(ticker_symbol)
+
+                hist_7d = await asyncio.to_thread(ticker.history, period="7d")
+
+                if hist_7d.empty:
+                    results.append({
+                        "company": company,
+                        "ticker": ticker_symbol,
+                        "allocation_percent": allocation_percent,
+                        "error": "No market data found"
+                    })
+                    continue
+
+                last_price = float(hist_7d["Close"].iloc[-1])
+
+                change_7d = ((last_price - float(hist_7d["Close"].iloc[0])) / float(hist_7d["Close"].iloc[0])) * 100
+
+                trend = "up" if change_7d > 0 else "down" if change_7d < 0 else "neutral"
 
                 results.append({
                     "company": company,
                     "ticker": ticker_symbol,
+                    "last_price": round(last_price, 2),
                     "allocation_percent": allocation_percent,
+                    "change_7d": change_7d,
+                    "trend": trend
                 })
 
             except Exception as e:
